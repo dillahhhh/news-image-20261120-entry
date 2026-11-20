@@ -245,7 +245,7 @@ def main():
         # (row, col, icon_kind, headline, sub, icon_h)
         (0, 0, ("img", summit, 0.06, 0.55),
          "TRUMP, XI & PUTIN HOLD FIRST THREE-WAY SUMMIT",
-         "Shenzhen • 4-point declaration • No breakthrough", 102),
+         "Shenzhen • 4-point declaration issued", 102),
         (0, 1, ("img", kyiv, 0.52, 1.0),
          "RUSSIA STRIKES KYIV; POLAND AIRSPACE BREACHED",
          ["Verified reports: 8 killed, 28 injured",
