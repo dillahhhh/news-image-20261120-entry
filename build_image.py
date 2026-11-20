@@ -236,10 +236,9 @@ def main():
         d.text((tx, y), ln, font=head_fnt, fill=NAVY)
         y += 50
     sub_fnt = font(REG, 22)
-    # rev4: full dateline sub wraps to 3 lines and its bottom (502) crosses
-    # the hero frame (498) — the hero headline is 4 lines, not 2. Use the
-    # parent-authorised short version (2 lines, bottom 474).
-    slines = wrap(d, "Thu 19 Nov ruling • 9–6 • First ICJ genocide finding against a state",
+    # rev5: "9-6 judges" (Claude: bare "9-6" is meaningless); "ruling"
+    # dropped so the line stays 2 lines (bottom 480, frame 498).
+    slines = wrap(d, "Thu 19 Nov • 9–6 judges • First ICJ genocide finding against a state",
                   sub_fnt, tw)
     y += 10
     for ln in slines:
@@ -262,34 +261,38 @@ def main():
         ASSETS, "media-generation-riyadh-0-03bfc5b7-1ef1-46c9-bb82-aabe04311fe9.png")))
 
     panels = [
-        # (row, col, icon_kind, headline, sub, icon_h)
+        # (row, col, icon_kind, headline, sub, icon_h, sub_size)
+        # rev5: subs at 18px except Kyiv (17px — its 3-line sub overflows
+        # the tile at 18px); leading = sub_size + 3 (20 at 17px, as rev4).
         (0, 0, ("img", summit, 0.06, 0.55),
          "TRUMP, XI & PUTIN HOLD FIRST THREE-WAY SUMMIT",
-         "Shenzhen • Thu 19 Nov • 4-point declaration issued", 102),
+         "Shenzhen • Thu 19 Nov", 102, 18),
         (0, 1, ("img", kyiv, 0.52, 1.0),
          "RUSSIA STRIKES KYIV; POLAND AIRSPACE BREACHED",
-         ["Verified reports: 8 killed, 28 injured",
-          "Poland says 2 missiles + 1 drone entered airspace"], 80),
+         ["8 killed, 28 injured (reports)",
+          "Poland says 2 missiles + 1 drone entered airspace"], 80, 17),
         (0, 2, ("chart", None, None, None),
-         "ASIA SLUMP: NIKKEI −5.1%",
-         # rev4: full sub wrapped to 3 lines with orphaned "debut"; use the
-         # parent-authorised Friday-first short version instead (2 clean lines).
-         "Fri: Nikkei −5.1% • Thu: S&P −2.0%, Anthropic +17%", 88),
+         "NIKKEI −5.1% IN TOKYO",
+         # rev5: single-index headline (Claude: "ASIA SLUMP" is wider than
+         # the evidence shown); Anthropic clause dropped (unexplained).
+         "Fri: Nikkei −5.1% • Thu: S&P −2.0%", 88, 18),
         (1, 0, ("tower", None, None, None),
-         "HOUTHI MISSILE DAMAGES SAUDI PIF TOWER",
-         "Thu 19 Nov • Saudi Civil Defense confirms damage", 102),
+         "HOUTHI MISSILE DAMAGES SAUDI WEALTH-FUND TOWER",
+         # rev5: icon 102 -> 94 — the 3-line headline needs the headroom
+         # (at 102 the sub's last line ended 1px past the tile bottom).
+         "Thu 19 Nov • Saudi Civil Defense confirms damage", 94, 18),
         (1, 1, ("pad", None, None, None),
          "GTA 6 EST. DAY-ONE SALES $2.36BN",
-         "Sensor Tower estimate", 102),
+         "Launched Thu 19 Nov • Sensor Tower estimate", 102, 18),
         (1, 2, ("medal", None, None, None),
          "MARATHON CHAMP BANNED 3 YEARS FOR DOPING",
          # split into two balanced lines (rev4): one-string wrap orphans "Nov"
-         ["Peres Jepchirchir • EPO", "Thu 19 Nov"], 102),
+         # rev5: icon 102 -> 94 lifts the sub 8px off the bottom rule (Claude).
+         ["Peres Jepchirchir • EPO", "Thu 19 Nov"], 94, 18),
     ]
 
     hfnt = font(BOLD, 22)
-    sfnt = font(REG, 17)   # rev4: one step up from 16 (18 overflows Kyiv's 2-line sub to 4 lines)
-    for (r, c, icon, head, sub, icon_h) in panels:
+    for (r, c, icon, head, sub, icon_h, sub_size) in panels:
         x0, y0 = cols[c], rows[r]
         x1, y1 = x0 + pw, y0 + ph
         # icon zone (Kyiv's is shorter so its 2-line sub fits)
@@ -315,11 +318,12 @@ def main():
             d.text((x0 + 6, ty), ln, font=hfnt, fill=NAVY)
             ty += 27
         ty += 2
+        sfnt = font(REG, sub_size)
         sub_lines = sub if isinstance(sub, list) else [sub]
         for s in sub_lines:
             for ln in wrap(d, s, sfnt, pw - 12):
                 d.text((x0 + 6, ty), ln, font=sfnt, fill=GRAY_DARK)
-                ty += 20
+                ty += sub_size + 3
 
     # broadsheet rules between panels
     for i in (1, 2):
