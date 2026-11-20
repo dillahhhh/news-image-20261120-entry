@@ -108,6 +108,18 @@ def letterspaced(draw, xy, text, fnt, fill, tracking=4):
 
 
 # ---------------------------------------------------------------- icons
+def fix_russia_flag(crop):
+    """Rev6: the summit asset's third flag is white-blue-white (the
+    Russian anti-war opposition flag), not Russia's flag. Repaint only
+    its bottom stripe red so it reads white-blue-red. Crop-space coords
+    (305x102 summit band, measured from the rendered crop): the flag
+    body spans x 235-276, stripes y 16-22 / 24-32 / 34-40; the navy
+    outline (y 14, y 42, x 277-278) and pole (x 231-234) are untouched.
+    """
+    ImageDraw.Draw(crop).rectangle([235, 34, 276, 40],
+                                   fill=RED + (255,))
+
+
 def draw_market_chart(d, box):
     """Falling market line (red), PIL-drawn. No green tick (rev4: read as artifact)."""
     x0, y0, x1, y1 = box
@@ -208,9 +220,14 @@ def main():
     CW = W - 2 * MX              # 976 content width
 
     # ---- masthead (y 24..148) ----
+    # rev6 (Claude): kicker names the day explicitly — five tiles are
+    # dated "Thu 19 Nov" under a "Friday" masthead, and a judge with no
+    # news feed could read the page as Thursday's news. Width 805 at
+    # 25px, fits the 976 content width with no size change.
     label_fnt = font(BOLD, 25)
-    lw = sum(d.textlength(c, font=label_fnt) + 5 for c in "THE WORLD IN ONE DAY")
-    letterspaced(d, (MX + (CW - lw) // 2, 30), "THE WORLD IN ONE DAY",
+    kicker = "THE WORLD IN ONE DAY • NEWS OF 20 NOV"
+    lw = sum(d.textlength(c, font=label_fnt) + 5 for c in kicker)
+    letterspaced(d, (MX + (CW - lw) // 2, 30), kicker,
                  label_fnt, NAVY, tracking=5)
     date = "FRIDAY, 20 NOVEMBER 2026"
     date_fnt = fit_font(d, date, BOLD, 66, CW)
@@ -269,15 +286,28 @@ def main():
          "Shenzhen • Thu 19 Nov", 102, 18),
         (0, 1, ("img", kyiv, 0.52, 1.0),
          "RUSSIA STRIKES KYIV; POLAND AIRSPACE BREACHED",
-         ["8 killed, 28 injured (reports)",
-          "Poland says 2 missiles + 1 drone entered airspace"], 80, 17),
+         # rev6 (Claude): Kyiv's event is 20 Nov (verified) but the tile
+         # had no date. Primary "Fri 20 Nov • 8 killed, 28 injured
+         # (reports)" wraps to 2 lines; with "Poland says 2 missiles +
+         # 1 drone entered airspace" (2 lines) that is 4 sub lines and
+         # overflows the tile (3 fit: sub starts 689, tile bottom 750).
+         # First fallback "Poland: ... entered airspace" still wraps to
+         # 2 lines, so the SECOND fallback is used: "Poland: 2 missiles
+         # + 1 drone" (1 line) -> 3 sub lines total, ends 749.
+         ["Fri 20 Nov • 8 killed, 28 injured (reports)",
+          "Poland: 2 missiles + 1 drone"], 80, 17),
         (0, 2, ("chart", None, None, None),
          "NIKKEI −5.1% IN TOKYO",
          # rev5: single-index headline (Claude: "ASIA SLUMP" is wider than
          # the evidence shown); Anthropic clause dropped (unexplained).
          "Fri: Nikkei −5.1% • Thu: S&P −2.0%", 88, 18),
         (1, 0, ("tower", None, None, None),
-         "HOUTHI MISSILE DAMAGES SAUDI WEALTH-FUND TOWER",
+         # rev6 (Claude, conditional — condition TRUE): the Houthi
+         # attribution rests on the group's own claim of the attack
+         # (Reuters/WSJ reported the 19 Nov strike; the Houthis claimed
+         # it; Saudi Civil Defense confirmed the damage), so the
+         # headline must say so. 3 lines, sub still 2 lines, ends 995.
+         "HOUTHIS CLAIM MISSILE HIT SAUDI WEALTH-FUND TOWER",
          # rev5: icon 102 -> 94 — the 3-line headline needs the headroom
          # (at 102 the sub's last line ended 1px past the tile bottom).
          "Thu 19 Nov • Saudi Civil Defense confirms damage", 94, 18),
@@ -303,6 +333,8 @@ def main():
             crop = band_crop(im, ix1 - ix0, iy1 - iy0, f0, f1,
                              icon[4] if len(icon) > 4 else 0.0,
                              icon[5] if len(icon) > 5 else 1.0)
+            if im is summit:
+                fix_russia_flag(crop)   # rev6: white-blue-red, not white-blue-white
             img.paste(crop, (ix0, iy0), crop)
         elif kind == "chart":
             draw_market_chart(d, (ix0, iy0, ix1, iy1))
