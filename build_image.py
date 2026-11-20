@@ -166,22 +166,21 @@ def draw_tower(d, box):
            fill=GRAY, width=2)
 
 
-def draw_house_cross(d, box):
-    """Simple house with a medical cross — 'patient goes home'."""
+def draw_debt_bars(d, box):
+    """Rising bar chart with a % mark — global public debt climbing."""
     x0, y0, x1, y1 = box
-    cx = (x0 + x1) // 2
-    # house body
-    bx0, by0, bx1, by1 = cx - 52, y0 + 34, cx + 52, y1 - 8
-    d.polygon([(cx - 66, by0), (cx + 66, by0), (cx, y0 + 2)], fill=NAVY)
-    d.rectangle([bx0, by0, bx1, by1], fill=NAVY)
-    # door
-    d.rectangle([cx - 12, by1 - 34, cx + 12, by1], fill=PAPER)
-    # red cross in a cream circle above the roof
-    ccx, ccy, cr = cx + 74, y0 + 26, 22
-    d.ellipse([ccx - cr, ccy - cr, ccx + cr, ccy + cr], fill=PAPER,
-              outline=RED, width=3)
-    d.rectangle([ccx - 4, ccy - 12, ccx + 4, ccy + 12], fill=RED)
-    d.rectangle([ccx - 12, ccy - 4, ccx + 12, ccy + 4], fill=RED)
+    # baseline
+    d.line([(x0 + 8, y1 - 10), (x1 - 8, y1 - 10)], fill=NAVY, width=3)
+    # five ascending bars, last one red
+    bw, gap = 34, 16
+    heights = [26, 38, 50, 62, 78]
+    bx = x0 + 26
+    for i, h in enumerate(heights):
+        col = RED if i == len(heights) - 1 else NAVY
+        d.rectangle([bx, y1 - 10 - h, bx + bw, y1 - 10], fill=col)
+        bx += bw + gap
+    # % mark top-left
+    d.text((x0 + 10, y0 + 2), "%", font=font(BOLD, 30), fill=RED)
 
 
 # ---------------------------------------------------------------- page
@@ -243,34 +242,35 @@ def main():
         ASSETS, "media-generation-riyadh-0-03bfc5b7-1ef1-46c9-bb82-aabe04311fe9.png")))
 
     panels = [
-        # (row, col, icon_kind, headline, sub)
+        # (row, col, icon_kind, headline, sub, icon_h)
         (0, 0, ("img", summit, 0.06, 0.55),
          "TRUMP, XI & PUTIN HOLD FIRST THREE-WAY SUMMIT",
-         "Shenzhen • 4-point declaration • No breakthrough"),
+         "Shenzhen • 4-point declaration • No breakthrough", 102),
         (0, 1, ("img", kyiv, 0.52, 1.0),
          "RUSSIA STRIKES KYIV; POLAND AIRSPACE BREACHED",
-         "Verified reports: 8 killed, 28 injured"),
+         ["Verified reports: 8 killed, 28 injured",
+          "Poland says 2 missiles + 1 drone entered airspace"], 80),
         (0, 2, ("chart", None, None, None),
-         "ANTHROPIC +17%; GLOBAL STOCKS SLIDE",
-         "Nikkei −4.8% • S&P 500 down a fifth day"),
+         "ANTHROPIC DEBUT +17%; NIKKEI −5.1%",
+         "S&P 500 −2.0% • sixth straight daily loss", 102),
         (1, 0, ("tower", None, None, None),
          "HOUTHI MISSILE DAMAGES SAUDI PIF TOWER",
-         "Riyadh financial district"),
+         "Riyadh financial district", 102),
         (1, 1, ("pad", None, None, None),
-         "GTA 6 SALES HIT $2.3BN",
-         "19 Nov launch • Metacritic 99"),
-        (1, 2, ("house", None, None, None),
-         "KENYA'S LAST EBOLA PATIENT GOES HOME",
-         "37 days after first case"),
+         "GTA 6 EST. DAY-ONE SALES $2.36BN",
+         "Sensor Tower estimate", 102),
+        (1, 2, ("debt", None, None, None),
+         "GLOBAL PUBLIC DEBT NEARS 95% OF GDP",
+         "IMF 2026 projections • 94.6%", 102),
     ]
 
     hfnt = font(BOLD, 22)
     sfnt = font(REG, 16)
-    for (r, c, icon, head, sub) in panels:
+    for (r, c, icon, head, sub, icon_h) in panels:
         x0, y0 = cols[c], rows[r]
         x1, y1 = x0 + pw, y0 + ph
-        # icon zone
-        ix0, iy0, ix1, iy1 = x0 + 6, y0 + 6, x1 - 6, y0 + 102
+        # icon zone (Kyiv's is shorter so its 2-line sub fits)
+        ix0, iy0, ix1, iy1 = x0 + 6, y0 + 6, x1 - 6, y0 + 6 + icon_h
         kind = icon[0]
         if kind == "img":
             im, f0, f1 = icon[1], icon[2], icon[3]
@@ -284,17 +284,19 @@ def main():
             draw_tower(d, (ix0, iy0, ix1, iy1))
         elif kind == "pad":
             draw_gamepad(d, (ix0, iy0, ix1, iy1))
-        elif kind == "house":
-            draw_house_cross(d, (ix0, iy0, ix1, iy1))
+        elif kind == "debt":
+            draw_debt_bars(d, (ix0, iy0, ix1, iy1))
         # headline + sub
         ty = iy1 + 8
         for ln in wrap(d, head, hfnt, pw - 12):
             d.text((x0 + 6, ty), ln, font=hfnt, fill=NAVY)
             ty += 27
         ty += 2
-        for ln in wrap(d, sub, sfnt, pw - 12):
-            d.text((x0 + 6, ty), ln, font=sfnt, fill=GRAY)
-            ty += 20
+        sub_lines = sub if isinstance(sub, list) else [sub]
+        for s in sub_lines:
+            for ln in wrap(d, s, sfnt, pw - 12):
+                d.text((x0 + 6, ty), ln, font=sfnt, fill=GRAY)
+                ty += 20
 
     # broadsheet rules between panels
     for i in (1, 2):
