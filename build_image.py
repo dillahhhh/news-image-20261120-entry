@@ -5,6 +5,7 @@ Front-page broadsheet, 1024x1024, flat vector, warm paper, navy ink,
 limited red accent. All text drawn with PIL (DejaVu) — no baked AI text.
 Run: python3 build_image.py  -> writes entry.png next to this file.
 """
+import math
 import os
 from PIL import Image, ImageDraw, ImageFont, ImageChops
 
@@ -17,6 +18,7 @@ NAVY = (20, 38, 78)
 NAVY_SOFT = (40, 54, 90)
 RED = (192, 57, 43)
 GRAY = (72, 72, 82)
+GRAY_DARK = (45, 45, 55)   # darker sub grey (rev4: legible at ~300px)
 RULE = (20, 38, 78)
 
 BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
@@ -74,6 +76,20 @@ def cover_crop(img, tw, th):
     return img.crop((x, y, x + tw, y + th))
 
 
+def contain_fit(img, tw, th):
+    """Scale to fit inside tw x th (no crop), centered on transparent canvas.
+
+    Used for the hero ICJ art (rev4): cover_crop clipped the gavel handle
+    at the right edge; contain keeps the whole drawing visible.
+    """
+    sw, sh = img.size
+    scale = min(tw / sw, th / sh)
+    img = img.resize((round(sw * scale), round(sh * scale)), Image.LANCZOS)
+    canvas = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
+    canvas.paste(img, ((tw - img.width) // 2, (th - img.height) // 2))
+    return canvas
+
+
 def band_crop(img, tw, th, y0_frac, y1_frac, x0_frac=0.0, x1_frac=1.0):
     """Take the [x0,x1]x[y0,y1] region of the image, cover-crop to tw x th."""
     sw, sh = img.size
@@ -93,7 +109,7 @@ def letterspaced(draw, xy, text, fnt, fill, tracking=4):
 
 # ---------------------------------------------------------------- icons
 def draw_market_chart(d, box):
-    """Falling market line with a small green up-tick, PIL-drawn."""
+    """Falling market line (red), PIL-drawn. No green tick (rev4: read as artifact)."""
     x0, y0, x1, y1 = box
     pad = 8
     # axes
@@ -106,11 +122,6 @@ def draw_market_chart(d, box):
     d.line(pts, fill=RED, width=5, joint="curve")
     for p in pts:
         d.ellipse([p[0] - 3, p[1] - 3, p[0] + 3, p[1] + 3], fill=RED)
-    # small green up arrow for Anthropic
-    ax, ay = x0 + 60, y0 + 30
-    d.line([(ax - 14, ay + 12), (ax, ay - 4), (ax + 14, ay + 12)],
-           fill=(46, 125, 50), width=4)
-    d.line([(ax, ay - 4), (ax, ay + 14)], fill=(46, 125, 50), width=4)
 
 
 def draw_gamepad(d, box):
@@ -166,21 +177,27 @@ def draw_tower(d, box):
            fill=GRAY, width=2)
 
 
-def draw_debt_bars(d, box):
-    """Rising bar chart with a % mark — global public debt climbing."""
+def draw_medal(d, box):
+    """Sports medal: red ribbon + navy disc with red star (rev4, replaces IMF debt bars)."""
     x0, y0, x1, y1 = box
-    # baseline
-    d.line([(x0 + 8, y1 - 10), (x1 - 8, y1 - 10)], fill=NAVY, width=3)
-    # five ascending bars, last one red
-    bw, gap = 34, 16
-    heights = [26, 38, 50, 62, 78]
-    bx = x0 + 26
-    for i, h in enumerate(heights):
-        col = RED if i == len(heights) - 1 else NAVY
-        d.rectangle([bx, y1 - 10 - h, bx + bw, y1 - 10], fill=col)
-        bx += bw + gap
-    # % mark top-left
-    d.text((x0 + 10, y0 + 2), "%", font=font(BOLD, 30), fill=RED)
+    cx = (x0 + x1) // 2
+    cy = (y0 + y1) // 2 + 6
+    # ribbon straps (red) from the top edge down to the medal
+    d.polygon([(cx - 16, y0 + 2), (cx - 2, y0 + 2),
+               (cx - 14, cy - 22), (cx - 28, cy - 22)], fill=RED)
+    d.polygon([(cx + 2, y0 + 2), (cx + 16, y0 + 2),
+               (cx + 28, cy - 22), (cx + 14, cy - 22)], fill=RED)
+    # medal disc (navy) with paper ring
+    r = 34
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=NAVY)
+    d.ellipse([cx - r + 8, cy - r + 8, cx + r - 8, cy + r - 8], fill=PAPER)
+    # red five-point star in the middle
+    pts = []
+    for i in range(10):
+        ang = -math.pi / 2 + i * math.pi / 5
+        rad = 20 if i % 2 == 0 else 8
+        pts.append((cx + rad * math.cos(ang), cy + rad * math.sin(ang)))
+    d.polygon(pts, fill=RED)
 
 
 # ---------------------------------------------------------------- page
@@ -207,7 +224,7 @@ def main():
     d.rectangle([MX, hy0, MX + CW, hy1], outline=NAVY, width=2)
     icj = Image.open(os.path.join(ASSETS, "media-generation-icj-0-ba260889-322a-46a9-9f76-3a9e85942e74.png"))
     icj = white_to_alpha(icj)
-    icj = cover_crop(icj, 452, hy1 - hy0 - 16)
+    icj = contain_fit(icj, 452, hy1 - hy0 - 16)   # rev4: no crop, gavel handle intact
     img.paste(icj, (MX + 8, hy0 + 8), icj)
     tx = MX + 478
     tw = MX + CW - tx - 16
@@ -219,7 +236,10 @@ def main():
         d.text((tx, y), ln, font=head_fnt, fill=NAVY)
         y += 50
     sub_fnt = font(REG, 22)
-    slines = wrap(d, "9–6 ruling on Rohingya • First ICJ genocide finding against a state",
+    # rev4: full dateline sub wraps to 3 lines and its bottom (502) crosses
+    # the hero frame (498) — the hero headline is 4 lines, not 2. Use the
+    # parent-authorised short version (2 lines, bottom 474).
+    slines = wrap(d, "Thu 19 Nov ruling • 9–6 • First ICJ genocide finding against a state",
                   sub_fnt, tw)
     y += 10
     for ln in slines:
@@ -245,27 +265,30 @@ def main():
         # (row, col, icon_kind, headline, sub, icon_h)
         (0, 0, ("img", summit, 0.06, 0.55),
          "TRUMP, XI & PUTIN HOLD FIRST THREE-WAY SUMMIT",
-         "Shenzhen • 4-point declaration issued", 102),
+         "Shenzhen • Thu 19 Nov • 4-point declaration issued", 102),
         (0, 1, ("img", kyiv, 0.52, 1.0),
          "RUSSIA STRIKES KYIV; POLAND AIRSPACE BREACHED",
          ["Verified reports: 8 killed, 28 injured",
           "Poland says 2 missiles + 1 drone entered airspace"], 80),
         (0, 2, ("chart", None, None, None),
-         "MARKETS: THU SELLOFF; FRI ASIA SLUMP",
-         "Thu: Anthropic +17% debut, S&P −2.0% • Fri: Nikkei −5.1%", 88),
+         "ASIA SLUMP: NIKKEI −5.1%",
+         # rev4: full sub wrapped to 3 lines with orphaned "debut"; use the
+         # parent-authorised Friday-first short version instead (2 clean lines).
+         "Fri: Nikkei −5.1% • Thu: S&P −2.0%, Anthropic +17%", 88),
         (1, 0, ("tower", None, None, None),
          "HOUTHI MISSILE DAMAGES SAUDI PIF TOWER",
-         "Riyadh financial district", 102),
+         "Thu 19 Nov • Saudi Civil Defense confirms damage", 102),
         (1, 1, ("pad", None, None, None),
          "GTA 6 EST. DAY-ONE SALES $2.36BN",
          "Sensor Tower estimate", 102),
-        (1, 2, ("debt", None, None, None),
-         "GLOBAL PUBLIC DEBT NEARS 95% OF GDP",
-         "IMF 2026 projections • 94.6%", 102),
+        (1, 2, ("medal", None, None, None),
+         "MARATHON CHAMP BANNED 3 YEARS FOR DOPING",
+         # split into two balanced lines (rev4): one-string wrap orphans "Nov"
+         ["Peres Jepchirchir • EPO", "Thu 19 Nov"], 102),
     ]
 
     hfnt = font(BOLD, 22)
-    sfnt = font(REG, 16)
+    sfnt = font(REG, 17)   # rev4: one step up from 16 (18 overflows Kyiv's 2-line sub to 4 lines)
     for (r, c, icon, head, sub, icon_h) in panels:
         x0, y0 = cols[c], rows[r]
         x1, y1 = x0 + pw, y0 + ph
@@ -284,8 +307,8 @@ def main():
             draw_tower(d, (ix0, iy0, ix1, iy1))
         elif kind == "pad":
             draw_gamepad(d, (ix0, iy0, ix1, iy1))
-        elif kind == "debt":
-            draw_debt_bars(d, (ix0, iy0, ix1, iy1))
+        elif kind == "medal":
+            draw_medal(d, (ix0, iy0, ix1, iy1))
         # headline + sub
         ty = iy1 + 8
         for ln in wrap(d, head, hfnt, pw - 12):
@@ -295,7 +318,7 @@ def main():
         sub_lines = sub if isinstance(sub, list) else [sub]
         for s in sub_lines:
             for ln in wrap(d, s, sfnt, pw - 12):
-                d.text((x0 + 6, ty), ln, font=sfnt, fill=GRAY)
+                d.text((x0 + 6, ty), ln, font=sfnt, fill=GRAY_DARK)
                 ty += 20
 
     # broadsheet rules between panels
